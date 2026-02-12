@@ -29,10 +29,29 @@ function getCorsHeaders(request) {
 }
 
 const MAX_HTML_SIZE = 200 * 1024; // 200KB
+const MAX_RELATED_HTML_SIZE = 50 * 1024; // 50KB per related page
 const MAX_PROXY_BODY = 500 * 1024; // 500KB
 const FETCH_TIMEOUT = 10000; // 10s
+const RELATED_FETCH_TIMEOUT = 5000; // 5s per related page
 const MAX_REDIRECTS = 5;
+const MAX_RELATED_PAGES = 5;
 const ALLOWED_CHARSETS = ['utf-8','shift_jis','euc-jp','iso-8859-1','windows-1252','shift-jis','windows-31j'];
+
+// Important page patterns for related page discovery
+const PAGE_PATTERNS = [
+  { type: 'commerce_law', priority: 1,
+    urlRe: /\/(tokushoho|law|commerce|trading|scta|tokutei)/i,
+    textRe: /特定商取引|特商法|返品[特交]|返金[ポ規]/i },
+  { type: 'company_info', priority: 2,
+    urlRe: /\/(company|about|corporate|info|gaiyou|kaisya)/i,
+    textRe: /会社概要|企業情報|運営会社|運営者情報|about\s*us/i },
+  { type: 'privacy_policy', priority: 3,
+    urlRe: /\/(privacy|privacypolicy)/i,
+    textRe: /プライバシー|個人情報保護|privacy/i },
+  { type: 'contact', priority: 4,
+    urlRe: /\/(contact|inquiry|otoiawase|toiawase)/i,
+    textRe: /お問い合わせ|連絡先|contact/i },
+];
 
 // Comprehensive private IP check (IPv4 + IPv6)
 function isPrivateIP(hostname) {
@@ -117,7 +136,104 @@ async function fetchWithRedirects(url, signal) {
   return { error: 'Too many redirects', status: 502 };
 }
 
-async function handleFetch(request, url) {
+// Extract same-domain links from HTML using regex (Workers have no DOMParser)
+function extractSameDomainLinks(html, baseUrl) {
+  const links = [];
+  const baseHost = new URL(baseUrl).hostname;
+  const re = /<a\s[^>]*href\s*=\s*["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    try {
+      const href = new URL(m[1], baseUrl);
+      if (href.hostname === baseHost && href.protocol.startsWith('http')) {
+        const text = m[2].replace(/<[^>]*>/g, '').trim();
+        links.push({ url: href.href, text });
+      }
+    } catch {}
+  }
+  // Deduplicate by path (ignore query/hash)
+  const seen = new Set();
+  return links.filter(l => {
+    const key = l.url.split('?')[0].split('#')[0];
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+// Classify links by importance pattern, return top N
+function classifyLinks(links, maxCount) {
+  const matched = []; // { url, type, priority }
+  const typeUsed = new Set();
+
+  for (const link of links) {
+    for (const pat of PAGE_PATTERNS) {
+      if (typeUsed.has(pat.type)) continue;
+      if (pat.urlRe.test(link.url) || pat.textRe.test(link.text)) {
+        matched.push({ url: link.url, type: pat.type, priority: pat.priority });
+        typeUsed.add(pat.type);
+        break;
+      }
+    }
+  }
+
+  return matched
+    .sort((a, b) => a.priority - b.priority)
+    .slice(0, maxCount);
+}
+
+// Fetch a single related page with size limit and timeout
+async function fetchRelatedPage(target, baseHost) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), RELATED_FETCH_TIMEOUT);
+
+  try {
+    const result = await fetchWithRedirects(target.url, controller.signal);
+    clearTimeout(timeout);
+
+    if (result.error) return { url: target.url, type: target.type, status: 0, html: '' };
+
+    const { resp, finalUrl } = result;
+
+    // Skip if redirected to a different domain
+    try {
+      if (new URL(finalUrl).hostname !== baseHost) {
+        return { url: target.url, type: target.type, status: 0, html: '' };
+      }
+    } catch {
+      return { url: target.url, type: target.type, status: 0, html: '' };
+    }
+
+    const ct = resp.headers.get('content-type') || '';
+    if (!ct.includes('text/html') && !ct.includes('application/xhtml')) {
+      return { url: target.url, type: target.type, status: resp.status, html: '' };
+    }
+
+    const arrayBuf = await resp.arrayBuffer();
+    const bytes = arrayBuf.byteLength > MAX_RELATED_HTML_SIZE
+      ? arrayBuf.slice(0, MAX_RELATED_HTML_SIZE)
+      : arrayBuf;
+
+    let charset = 'utf-8';
+    const charsetMatch = ct.match(/charset=([^\s;]+)/i);
+    if (charsetMatch && ALLOWED_CHARSETS.includes(charsetMatch[1].toLowerCase())) {
+      charset = charsetMatch[1];
+    }
+    let html;
+    try {
+      html = new TextDecoder(charset, { fatal: false }).decode(bytes);
+    } catch {
+      html = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+    }
+
+    return { url: target.url, type: target.type, status: resp.status, html };
+  } catch {
+    clearTimeout(timeout);
+    return { url: target.url, type: target.type, status: 0, html: '' };
+  }
+}
+
+async function handleFetch(request, url, relatedCount) {
   // Require API key for /fetch to prevent open proxy abuse
   const apiKey = request.headers.get('X-API-Key');
   if (!apiKey) {
@@ -184,7 +300,24 @@ async function handleFetch(request, url) {
       clearTimeout(timeout);
     }
 
-    return jsonResponse(request, {
+    // Fetch related pages if requested and main page is HTML
+    let related = [];
+    if (relatedCount > 0 && isHtml && html) {
+      const baseHost = new URL(finalUrl).hostname;
+      const links = extractSameDomainLinks(html, finalUrl);
+      const targets = classifyLinks(links, relatedCount);
+
+      if (targets.length > 0) {
+        const results = await Promise.allSettled(
+          targets.map(t => fetchRelatedPage(t, baseHost))
+        );
+        related = results
+          .filter(r => r.status === 'fulfilled' && r.value.status > 0)
+          .map(r => r.value);
+      }
+    }
+
+    const responseData = {
       status: resp.status,
       finalUrl,
       redirected: redirectChain.length > 0,
@@ -192,7 +325,12 @@ async function handleFetch(request, url) {
       isHtml,
       headers,
       html,
-    });
+    };
+    if (related.length > 0) {
+      responseData.related = related;
+    }
+
+    return jsonResponse(request, responseData);
 
   } catch (e) {
     if (e.name === 'AbortError') {
@@ -266,7 +404,9 @@ export default {
       if (!targetUrl) {
         return jsonResponse(request, { error: 'Missing url parameter' }, 400);
       }
-      return handleFetch(request, targetUrl);
+      const relatedParam = parseInt(url.searchParams.get('related') || '0', 10);
+      const relatedCount = Math.max(0, Math.min(MAX_RELATED_PAGES, isNaN(relatedParam) ? 0 : relatedParam));
+      return handleFetch(request, targetUrl, relatedCount);
     }
 
     if (path.startsWith('/models/')) {

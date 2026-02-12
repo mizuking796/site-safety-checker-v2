@@ -294,13 +294,29 @@ const HtmlExtractor = {
 // ============================================================
 // Gemini API Client
 // ============================================================
+// Extract text from related page HTML (client-side, DOMParser available)
+function extractRelatedText(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  // Remove script/style
+  doc.querySelectorAll('script,style,noscript').forEach(el => el.remove());
+  const body = doc.body ? doc.body.textContent.replace(/\s+/g, ' ').trim() : '';
+  return body.slice(0, 3000);
+}
+
+const RELATED_TYPE_LABELS = {
+  commerce_law: '特定商取引法に基づく表記',
+  company_info: '会社概要',
+  privacy_policy: 'プライバシーポリシー',
+  contact: 'お問い合わせ',
+};
+
 const GeminiClient = {
-  async analyze(config, urlStr, urlAnalysis, htmlContent, headers, cancelSignal) {
+  async analyze(config, urlStr, urlAnalysis, htmlContent, headers, cancelSignal, relatedPages) {
     const workerUrl = (config.workerUrl || DEFAULT_WORKER_URL).replace(/\/+$/, '');
     const apiKey = config.apiKey;
 
     const sensitivity = loadSensitivity();
-    const prompt = this._buildPrompt(urlStr, urlAnalysis, htmlContent, headers, sensitivity);
+    const prompt = this._buildPrompt(urlStr, urlAnalysis, htmlContent, headers, sensitivity, relatedPages);
     const schema = this._responseSchema();
 
     const body = {
@@ -389,7 +405,7 @@ const GeminiClient = {
     return ids.slice(0, 5);
   },
 
-  _buildPrompt(urlStr, urlAnalysis, htmlContent, headers, sensitivity) {
+  _buildPrompt(urlStr, urlAnalysis, htmlContent, headers, sensitivity, relatedPages) {
     const P = window.SSC_PATTERNS;
     if (!P || !P.categories || !P.categoryIndex) {
       throw new Error('パターンデータの読み込みに失敗しました。ページを再読み込みしてください。');
@@ -447,7 +463,7 @@ ${htmlContent?.bodyText || '取得不可'}
 連絡先: ${htmlContent?.hasContact ? 'あり' : 'なし'}
 プライバシーポリシー: ${htmlContent?.hasPrivacyPolicy ? 'あり' : 'なし'}
 特定商取引法表記: ${htmlContent?.commerceLawInContent ? 'ページ内に記載あり' : htmlContent?.hasCommerceLaw ? 'リンクあり（別ページに存在）' : 'なし'}
-
+${this._buildRelatedSection(relatedPages)}
 ## 検出すべき詐欺・違法サイトカテゴリ一覧（19種）
 以下は全19カテゴリの概要です。詳細パターンは、事前スクリーニングで関連性が高いと判定されたカテゴリのみ提供します。該当しないカテゴリでも明らかな詐欺パターンがあれば報告してください。
 
@@ -468,6 +484,22 @@ ${P.falsePositiveGuide}
 - claim_credibility: 主張の信頼性（誇大広告、非現実的保証、法令違反表現）
 - scam_pattern: 詐欺パターン非合致度（既知パターンとの非類似度。高いほど安全）
 - tech_safety: 技術的安全性（SSL、難読化、隠しフォーム）
+
+`;
+  },
+
+  _buildRelatedSection(relatedPages) {
+    if (!relatedPages || relatedPages.length === 0) return '';
+    const sections = relatedPages.map(p => {
+      const label = RELATED_TYPE_LABELS[p.type] || p.type;
+      return `### ${label} (${p.url})\n${p.text}`;
+    });
+    return `
+## 関連ページ（同一ドメイン内で自動取得）
+以下は対象サイトの会社概要・特商法等の重要ページを自動取得した内容です。
+メインページと併せて運営者の透明性や表記の整合性を評価してください。
+
+${sections.join('\n\n')}
 
 `;
   },
@@ -1061,7 +1093,7 @@ async function runCheck(urlStr) {
     let fetchData = null;
     try {
       const workerUrl = (config.workerUrl || DEFAULT_WORKER_URL).replace(/\/+$/, '');
-      const fetchResp = await fetch(`${workerUrl}/fetch?url=${encodeURIComponent(urlStr)}`, {
+      const fetchResp = await fetch(`${workerUrl}/fetch?url=${encodeURIComponent(urlStr)}&related=3`, {
         headers: config.apiKey ? { 'X-API-Key': config.apiKey } : {},
         signal: _combinedSignal(cancelSignal, 15000)
       });
@@ -1082,10 +1114,23 @@ async function runCheck(urlStr) {
 
     // Stage 2: Extract content from fetched HTML
     ProgressMgr.update('コンテンツを解析中...', 35);
+    let relatedPages = [];
     if (fetchData) {
       headers = fetchData.headers || null;
       if (fetchData.html) {
         htmlContent = HtmlExtractor.extract(fetchData.html, urlStr);
+      }
+
+      // Process related pages
+      if (fetchData.related && fetchData.related.length > 0) {
+        relatedPages = fetchData.related
+          .filter(r => r.html)
+          .map(r => ({
+            url: r.url,
+            type: r.type,
+            text: extractRelatedText(r.html),
+          }))
+          .filter(r => r.text.length > 50); // Skip near-empty pages
       }
 
       // Check redirects
@@ -1119,7 +1164,7 @@ async function runCheck(urlStr) {
     if (config.apiKey) {
       ProgressMgr.update('AI分析中...', 55);
       try {
-        aiResult = await GeminiClient.analyze(config, urlStr, clientAnalysis, htmlContent, headers, cancelSignal);
+        aiResult = await GeminiClient.analyze(config, urlStr, clientAnalysis, htmlContent, headers, cancelSignal, relatedPages);
         ProgressMgr.update('AI分析中...', 85);
       } catch (e) {
         if (cancelSignal.aborted) throw e; // Re-throw if canceled
