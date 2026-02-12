@@ -531,6 +531,8 @@ a { color: #4A6FA5; }
 .score-bar-fill.critical { background: #C0392B; }
 
 /* === Categories === */
+.category-item { margin-bottom: 8px; }
+.category-item:last-child { margin-bottom: 0; }
 .category-tag {
   display: inline-flex;
   align-items: center;
@@ -687,6 +689,8 @@ a { color: #4A6FA5; }
 .advanced-section > .form-group {
   padding: 0 14px 14px;
 }
+.advanced-group { margin-top: 12px; }
+.settings-actions { margin-top: 18px; }
 
 /* === Settings Divider === */
 .settings-divider {

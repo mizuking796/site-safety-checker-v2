@@ -914,11 +914,15 @@ const ResultsRenderer = {
             <span class="score-bar-value">${val}</span>
           </div>
           <div class="score-bar-track">
-            <div class="score-bar-fill ${cls}" style="width:${val}%"></div>
+            <div class="score-bar-fill ${cls}" data-width="${val}"></div>
           </div>
         </div>`;
     });
     barsEl.innerHTML = barsHtml;
+    // Set widths via JS (CSP blocks inline style attributes)
+    barsEl.querySelectorAll('.score-bar-fill').forEach(el => {
+      el.style.width = el.dataset.width + '%';
+    });
 
     // Detected categories
     const catCard = document.getElementById('categoriesCard');
@@ -927,7 +931,7 @@ const ResultsRenderer = {
       catCard.hidden = false;
       const validConf = ['high','medium','low'];
       catList.innerHTML = aiResult.detected_categories.map(c => `
-        <div style="margin-bottom:8px">
+        <div class="category-item">
           <span class="category-tag ${validConf.includes(c.confidence) ? c.confidence : 'medium'}">${this._esc(c.category)}</span>
           <div class="category-evidence">${this._esc(c.evidence)}</div>
         </div>
