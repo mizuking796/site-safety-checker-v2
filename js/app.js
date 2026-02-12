@@ -324,7 +324,7 @@ const GeminiClient = {
       if (resp.status === 429) {
         throw new Error('Gemini APIの利用上限に達しました。しばらく待ってから再度お試しください。');
       }
-      throw new Error(`Gemini API error ${resp.status}: ${errText.slice(0, 200)}`);
+      throw new Error(`Gemini API error ${resp.status}: ${sanitizeError(errText.slice(0, 200))}`);
     }
 
     const data = await resp.json();
@@ -370,24 +370,35 @@ const GeminiClient = {
       if (r) r.matchCount = Math.max(r.matchCount, 1);
     }
 
-    const matched = results.filter(r => r.matchCount > 0)
-      .sort((a, b) => b.matchCount - a.matchCount)
-      .slice(0, 5);
+    // Defaults: investment(2), phishing(3), fake shop(4), support scam(7), dark job(1)
+    const DEFAULTS = [2, 3, 4, 7, 1];
 
-    if (matched.length === 0) return [2, 3, 4]; // defaults: investment, phishing, fake shop
-    return matched.map(r => r.id);
+    const matched = results.filter(r => r.matchCount > 0)
+      .sort((a, b) => b.matchCount - a.matchCount);
+
+    if (matched.length === 0) return DEFAULTS;
+
+    // Merge matched with defaults to ensure minimum coverage
+    const ids = matched.map(r => r.id);
+    if (ids.length < 5) {
+      for (const d of DEFAULTS) {
+        if (!ids.includes(d)) ids.push(d);
+        if (ids.length >= 5) break;
+      }
+    }
+    return ids.slice(0, 5);
   },
 
   _buildPrompt(urlStr, urlAnalysis, htmlContent, headers, sensitivity) {
     const P = window.SSC_PATTERNS;
+    if (!P || !P.categories || !P.categoryIndex) {
+      throw new Error('パターンデータの読み込みに失敗しました。ページを再読み込みしてください。');
+    }
     const today = new Date().toISOString().slice(0, 10);
 
     // Prescreen categories
     const matchedIds = this._prescreenCategories(urlAnalysis, htmlContent);
     const matchedCats = P.categories.filter(c => matchedIds.includes(c.id));
-    const bodyLower = (htmlContent?.bodyText || '').toLowerCase();
-    const adRelevant = P.adViolations.keywords.some(kw => bodyLower.includes(kw.toLowerCase()));
-
     let sensitivityInstruction = '';
     if (sensitivity === 'high') {
       sensitivityInstruction = '\n## 感度設定: 高感度モード\n疑わしい場合は積極的に低スコアを付けてください。グレーゾーンのサイトは安全側ではなく危険側に寄せて判定してください。\n';
@@ -444,9 +455,11 @@ ${P.categoryIndex}
 
 ## 詳細パターン（スクリーニング結果: ${matchedCats.map(c => 'Cat' + c.id).join(', ')}）
 ${matchedCats.map(c => c.promptText).join('\n\n')}
-${adRelevant ? '\n' + P.adViolations.promptText : ''}
+
+${P.adViolations.promptText}
 
 ${P.falsePositiveGuide}
+
 ## 評価基準
 各次元を0-100で評価（100が最も安全）:
 - domain_trust: ドメイン信頼性（URL構造、TLD、ブランド偽装、SSL）
@@ -946,17 +959,20 @@ const ResultsRenderer = {
 
     if (allFindings.length > 0) {
       findCard.hidden = false;
-      findList.innerHTML = allFindings.map(f => `
+      const validSeverities = ['critical','high','medium','low','info'];
+      findList.innerHTML = allFindings.map(f => {
+        const sev = validSeverities.includes(f.severity) ? f.severity : 'info';
+        return `
         <div class="finding-item">
           <div class="finding-header">
-            <span class="finding-severity ${f.severity}"></span>
+            <span class="finding-severity ${sev}"></span>
             <span class="finding-title">${this._esc(f.title)}</span>
             <span class="finding-dimension">${this._esc(f.dimension)}</span>
           </div>
           ${f.description ? `<div class="finding-desc">${this._esc(f.description)}</div>` : ''}
           ${f.quote ? `<div class="finding-quote">${this._esc(f.quote)}</div>` : ''}
         </div>
-      `).join('');
+      `}).join('');
     } else {
       findCard.hidden = true;
     }
@@ -991,11 +1007,18 @@ const ResultsRenderer = {
   }
 };
 
+// Sanitize error messages: strip API key patterns
+function sanitizeError(msg) {
+  if (!msg) return '不明なエラー';
+  return msg.replace(/AIza[A-Za-z0-9_-]{35}/g, '[API_KEY]');
+}
+
 // ============================================================
 // Main Analysis Flow
 // ============================================================
 let isChecking = false;
 let checkAbortController = null;
+let checkGeneration = 0;
 
 // Combine cancel signal + timeout into one signal
 function _combinedSignal(cancelSignal, timeoutMs) {
@@ -1015,6 +1038,7 @@ async function runCheck(urlStr) {
   checkAbortController?.abort();
   checkAbortController = new AbortController();
   const cancelSignal = checkAbortController.signal;
+  const myGen = ++checkGeneration;
   isChecking = true;
   const config = loadConfig();
   let incomplete = null;
@@ -1123,10 +1147,10 @@ async function runCheck(urlStr) {
     if (cancelSignal.aborted) return; // Silently exit if canceled
     console.error('Analysis error:', e);
     ProgressMgr.hide();
-    alert('分析中にエラーが発生しました: ' + (e.message || '不明なエラー'));
+    alert('分析中にエラーが発生しました: ' + sanitizeError(e.message));
     showScreen('screenCheck');
   } finally {
-    isChecking = false;
+    if (myGen === checkGeneration) isChecking = false;
   }
 }
 
@@ -1141,6 +1165,7 @@ async function runTextCheck(urlStr, pastedText) {
   checkAbortController?.abort();
   checkAbortController = new AbortController();
   const cancelSignal = checkAbortController.signal;
+  const myGen = ++checkGeneration;
   isChecking = true;
   let incomplete = null;
   let aiResult = null;
@@ -1201,10 +1226,10 @@ async function runTextCheck(urlStr, pastedText) {
     if (cancelSignal.aborted) return;
     console.error('Analysis error:', e);
     ProgressMgr.hide();
-    alert('分析中にエラーが発生しました: ' + (e.message || '不明なエラー'));
+    alert('分析中にエラーが発生しました: ' + sanitizeError(e.message));
     showScreen('screenCheck');
   } finally {
-    isChecking = false;
+    if (myGen === checkGeneration) isChecking = false;
   }
 }
 
@@ -1314,10 +1339,13 @@ function init() {
       alert('APIキーの形式が正しくありません。AIzaで始まる39文字のキーを入力してください。');
       return;
     }
-    const cfgToSave = { apiKey };
+    const cfgToSave = loadConfig();
+    cfgToSave.apiKey = apiKey;
     if (workerUrlInput) {
       if (!validateWorkerUrl(workerUrlInput)) return;
       cfgToSave.workerUrl = workerUrlInput;
+    } else {
+      delete cfgToSave.workerUrl;
     }
     saveConfig(cfgToSave);
     // Save sensitivity

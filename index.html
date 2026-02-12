@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://*.workers.dev https://generativelanguage.googleapis.com; img-src 'self'; style-src 'self'">
 <title>Site Safety Checker</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -19,7 +20,7 @@
         </svg>
         Site Safety Checker
       </h1>
-      <button class="btn-icon" id="btnSettings" title="Settings">
+      <button class="btn-icon" id="btnSettings" title="設定">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
         </svg>
@@ -136,7 +137,7 @@
 
       <div class="form-group">
         <label for="setupApiKey">Gemini API Key</label>
-        <input type="password" id="setupApiKey" placeholder="AIza...">
+        <input type="password" id="setupApiKey" placeholder="AIza..." autocomplete="off">
         <p class="hint">キーはこの端末にのみ保存されます。サーバーには送信されません。</p>
       </div>
       <button class="btn btn-primary" id="btnSetupSave">保存して始める</button>
@@ -262,7 +263,7 @@
       <h2>設定</h2>
       <div class="form-group">
         <label for="settingsApiKey">Gemini API Key</label>
-        <input type="password" id="settingsApiKey" placeholder="AIza...">
+        <input type="password" id="settingsApiKey" placeholder="AIza..." autocomplete="off">
         <p class="hint"><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> でAPIキーを取得・確認できます</p>
       </div>
 
