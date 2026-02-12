@@ -728,3 +728,11 @@ a { color: #4A6FA5; }
   .setup-card { max-width: 100%; }
   .consent-card { max-width: 100%; }
 }
+
+/* Version text */
+.version-text {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+}

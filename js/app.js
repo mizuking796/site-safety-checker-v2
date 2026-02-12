@@ -2,6 +2,11 @@
 'use strict';
 
 // ============================================================
+// Version
+// ============================================================
+const APP_VERSION = '2.2.0';
+
+// ============================================================
 // Config & Storage
 // ============================================================
 const STORAGE_KEY = 'ssc_config';
@@ -1289,6 +1294,10 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 // ============================================================
 function init() {
   const config = loadConfig();
+
+  // Version display
+  const verEl = document.getElementById('versionText');
+  if (verEl) verEl.textContent = 'v' + APP_VERSION;
 
   // Determine initial screen
   if (!hasConsent()) {
