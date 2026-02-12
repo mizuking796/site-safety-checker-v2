@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Site Safety Checker</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <h1 class="logo" id="btnHome">
+        <svg class="logo-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+        Site Safety Checker
+      </h1>
+      <button class="btn-icon" id="btnSettings" title="Settings">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Consent Screen -->
+  <section id="screenConsent" class="screen" hidden>
+    <div class="card consent-card">
+      <h2>利用規約</h2>
+
+      <div class="terms-content">
+        <div class="terms-section">
+          <h3>1. サービスの概要</h3>
+          <p>Site Safety Checker（以下「本ツール」）は、URLを入力することでウェブサイトの安全性をAIで参考分析するツールです。分析結果は参考情報であり、サイトの安全性を保証するものではありません。</p>
+        </div>
+
+        <div class="terms-section terms-important">
+          <h3>2. AI分析の限界（重要）</h3>
+          <ul>
+            <li>分析対象は<strong>現時点でのそのページの内容のみ</strong>です。サイト内の他のページ、過去の行政処分歴、企業の評判等は分析対象外です。</li>
+            <li>AIの判定には<strong>誤りの可能性</strong>があります。安全なサイトを危険と判定したり、危険なサイトを安全と判定することがあります。</li>
+            <li>分析結果は事実の断定ではなく、<strong>AIによる参考意見</strong>です。</li>
+          </ul>
+        </div>
+
+        <div class="terms-section">
+          <h3>3. 免責事項</h3>
+          <p>本ツールの分析結果に基づく行動により生じたいかなる損害についても、開発者は一切の責任を負いません。サイトの利用・取引等の最終判断は、ご自身の責任で行ってください。</p>
+        </div>
+
+        <div class="terms-section">
+          <h3>4. 禁止事項</h3>
+          <ul>
+            <li>分析結果のスクリーンショットやテキストを<strong>SNS・ブログ等で公開</strong>すること</li>
+            <li>特定の企業・個人に対する<strong>誹謗中傷</strong>の目的で本ツールを利用すること</li>
+          </ul>
+        </div>
+
+        <div class="terms-section">
+          <h3>5. APIキー・個人情報について</h3>
+          <p>お客様のGemini APIキーはブラウザ内（localStorage）にのみ保存され、開発者のサーバーに送信されることはありません。</p>
+        </div>
+
+        <div class="terms-section">
+          <h3>6. 開発者情報</h3>
+          <p>特定非営利活動法人リハビリコラボレーション</p>
+        </div>
+      </div>
+
+      <label class="consent-check">
+        <input type="checkbox" id="consentCheckbox">
+        <span>上記の利用規約に同意します</span>
+      </label>
+      <button class="btn btn-primary" id="btnConsent" disabled>同意して始める</button>
+    </div>
+  </section>
+
+  <!-- Setup Screen -->
+  <section id="screenSetup" class="screen" hidden>
+    <div class="card setup-card">
+      <h2>初期設定</h2>
+      <p class="setup-desc">はじめにGemini APIキーの取得が必要です（無料・3分）。</p>
+
+      <div class="setup-guide">
+        <h3>APIキーの取得方法</h3>
+
+        <div class="setup-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <div class="step-title">Google AI Studio を開く</div>
+            <p class="step-desc">下のボタンからGoogle AI Studioを開きます。Googleアカウントでログインしてください。</p>
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" class="btn-link">Google AI Studio を開く &rarr;</a>
+          </div>
+        </div>
+
+        <div class="setup-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <div class="step-title">利用規約に同意する</div>
+            <p class="step-desc">初回のみ「Welcome to AI Studio」画面が表示されます。<br>上のチェックボックス（I acknowledge...）に<strong>チェック</strong>を入れて、右下の<strong>「続行」</strong>ボタンを押してください。</p>
+            <img src="img/guide-welcome.png" alt="Welcome to AI Studio画面" class="guide-img">
+            <p class="step-note">下のチェック（メール受信）は任意です。</p>
+          </div>
+        </div>
+
+        <div class="setup-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <div class="step-title">APIキーをコピー</div>
+            <p class="step-desc">キーの一覧画面が表示されます。</p>
+            <ul class="step-list">
+              <li>既にキーがある場合 → そのキー名を<strong>クリック</strong></li>
+            </ul>
+            <img src="img/guide-key-list.png" alt="キー一覧画面" class="guide-img guide-img-sm">
+            <ul class="step-list">
+              <li>キーがない場合 →「<strong>APIキーを作成</strong>」ボタンで新規作成</li>
+            </ul>
+            <img src="img/guide-create-btn.png" alt="APIキーを作成ボタン" class="guide-img guide-img-sm">
+            <p class="step-desc">「APIキーの詳細」画面が開くので、右下の<strong>「キーをコピー」</strong>ボタンを押してください。</p>
+            <img src="img/guide-key-detail.png" alt="APIキーの詳細画面" class="guide-img">
+          </div>
+        </div>
+
+        <div class="setup-step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <div class="step-title">下に貼り付けて保存</div>
+            <p class="step-desc">コピーしたキーを下の入力欄に貼り付けて「保存して始める」を押してください。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="setupApiKey">Gemini API Key</label>
+        <input type="password" id="setupApiKey" placeholder="AIza...">
+        <p class="hint">キーはこの端末にのみ保存されます。サーバーには送信されません。</p>
+      </div>
+      <button class="btn btn-primary" id="btnSetupSave">保存して始める</button>
+    </div>
+  </section>
+
+  <!-- Check Screen -->
+  <section id="screenCheck" class="screen" hidden>
+    <div class="card check-card">
+      <div class="mode-tabs">
+        <button class="mode-tab active" data-mode="url">URL入力</button>
+        <button class="mode-tab" data-mode="text">テキスト貼り付け</button>
+      </div>
+      <div id="modeUrl" class="mode-panel">
+        <p class="check-desc">気になるサイトのURLを入力してください</p>
+        <div class="input-row">
+          <input type="url" id="inputUrl" placeholder="https://example.com" autocomplete="url">
+          <button class="btn btn-primary" id="btnCheck">チェック</button>
+        </div>
+      </div>
+      <div id="modeText" class="mode-panel" hidden>
+        <p class="check-desc">サイトの内容をコピー＆ペーストしてください</p>
+        <div class="form-group">
+          <label for="inputTextUrl">URL（任意）</label>
+          <input type="url" id="inputTextUrl" placeholder="https://example.com">
+        </div>
+        <div class="form-group">
+          <label for="inputText">サイトの内容</label>
+          <textarea id="inputText" rows="8" placeholder="ブラウザでページを開き、Ctrl+A（全選択）→ Ctrl+C（コピー）して、ここに貼り付けてください"></textarea>
+        </div>
+        <button class="btn btn-primary" id="btnCheckText">チェック</button>
+      </div>
+      <p class="error-text" id="urlError" hidden></p>
+    </div>
+    <div class="tips-card card" id="tipsCard">
+      <h3>こんなサイトにご注意</h3>
+      <ul class="tips-list">
+        <li>「今すぐ」「残りわずか」など<strong>焦らせる表現</strong>が多いサイト</li>
+        <li>「確実に儲かる」「元本保証」など<strong>非現実的な約束</strong></li>
+        <li>会社概要や連絡先が<strong>記載されていない</strong>通販サイト</li>
+        <li>URLが有名ブランドに<strong>似ているが微妙に違う</strong>サイト</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Progress Overlay -->
+  <div id="progressOverlay" class="progress-overlay" hidden>
+    <div class="progress-content">
+      <div class="spinner"></div>
+      <p class="progress-stage" id="progressStage">準備中...</p>
+      <div class="progress-row">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progressBar"></div>
+        </div>
+        <span class="progress-pct" id="progressPct">0%</span>
+      </div>
+      <p class="progress-tip" id="progressTip"></p>
+      <button class="btn btn-text progress-cancel" id="btnCancelCheck">キャンセル</button>
+    </div>
+  </div>
+
+  <!-- Results Screen -->
+  <section id="screenResults" class="screen" hidden>
+    <!-- Risk Banner -->
+    <div class="risk-banner" id="riskBanner">
+      <div class="risk-icon" id="riskIcon"></div>
+      <div class="risk-text">
+        <span class="risk-level" id="riskLevel"></span>
+        <span class="risk-url" id="riskUrl"></span>
+      </div>
+    </div>
+
+    <div class="results-grid">
+      <!-- Radar Chart -->
+      <div class="card chart-card">
+        <h3>信頼性レーダー</h3>
+        <canvas id="radarChart" width="300" height="300"></canvas>
+      </div>
+
+      <!-- Score Bars -->
+      <div class="card scores-card">
+        <h3>6軸スコア</h3>
+        <div id="scoreBars"></div>
+      </div>
+    </div>
+
+    <!-- Detected Categories -->
+    <div class="card" id="categoriesCard" hidden>
+      <h3>検出された詐欺パターン</h3>
+      <div id="categoriesList"></div>
+    </div>
+
+    <!-- Findings -->
+    <div class="card" id="findingsCard" hidden>
+      <h3>詳細所見</h3>
+      <div id="findingsList"></div>
+    </div>
+
+    <!-- AI Summary -->
+    <div class="card" id="summaryCard" hidden>
+      <h3>AI総合評価</h3>
+      <p id="summaryText"></p>
+    </div>
+
+    <!-- Incomplete Notice -->
+    <div class="card notice-card" id="incompleteNotice" hidden>
+      <p id="incompleteText"></p>
+    </div>
+
+    <!-- Disclaimer -->
+    <div class="card disclaimer-card">
+      <p class="disclaimer-text">この結果はAIによる参考分析であり、現時点でのこのページの内容のみを対象としています。企業の過去の行政処分歴や、サイト内の他のページは分析対象外です。正当なサービスでも一部の指標が低くなることがあります。レーダーチャートの形状と詳細所見を参考に、最終的な判断はご自身で行ってください。</p>
+    </div>
+
+    <div class="results-actions">
+      <button class="btn btn-secondary" id="btnNewCheck">別のURLをチェック</button>
+    </div>
+  </section>
+
+  <!-- Settings Screen -->
+  <section id="screenSettings" class="screen" hidden>
+    <div class="card setup-card">
+      <h2>設定</h2>
+      <div class="form-group">
+        <label for="settingsApiKey">Gemini API Key</label>
+        <input type="password" id="settingsApiKey" placeholder="AIza...">
+        <p class="hint"><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> でAPIキーを取得・確認できます</p>
+      </div>
+
+      <div class="form-group">
+        <label>分析感度</label>
+        <div class="sensitivity-radios">
+          <label class="radio-label">
+            <input type="radio" name="sensitivity" value="high">
+            <span class="radio-text"><strong>高感度</strong><br><span class="radio-desc">疑わしいサイトを見逃さない（誤検知多め）</span></span>
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="sensitivity" value="standard" checked>
+            <span class="radio-text"><strong>標準（推奨）</strong></span>
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="sensitivity" value="low">
+            <span class="radio-text"><strong>低感度</strong><br><span class="radio-desc">誤検知を減らす（見逃し多め）</span></span>
+          </label>
+        </div>
+      </div>
+
+      <details class="advanced-section">
+        <summary>上級者向け設定</summary>
+        <div class="form-group" style="margin-top:12px">
+          <label for="settingsWorkerUrl">Worker URL</label>
+          <input type="url" id="settingsWorkerUrl" placeholder="空欄＝デフォルト">
+          <p class="hint">通常は空欄のままで問題ありません。独自Workerを使う場合のみ入力してください。</p>
+        </div>
+      </details>
+
+      <div class="btn-row" style="margin-top:18px">
+        <button class="btn btn-primary" id="btnSettingsSave">保存</button>
+        <button class="btn btn-secondary" id="btnSettingsBack">戻る</button>
+      </div>
+
+      <hr class="settings-divider">
+      <button class="btn btn-text" id="btnShowTerms">利用規約を表示</button>
+    </div>
+  </section>
+</div>
+
+<script src="js/patterns.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
