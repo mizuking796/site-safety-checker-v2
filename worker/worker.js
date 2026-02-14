@@ -191,7 +191,10 @@ async function fetchRelatedPage(target, baseHost) {
     const result = await fetchWithRedirects(target.url, controller.signal);
     clearTimeout(timeout);
 
-    if (result.error) return { url: target.url, type: target.type, status: 0, html: '' };
+    if (result.error) {
+      clearTimeout(timeout);
+      return { url: target.url, type: target.type, status: 0, html: '' };
+    }
 
     const { resp, finalUrl } = result;
 
@@ -234,10 +237,10 @@ async function fetchRelatedPage(target, baseHost) {
 }
 
 async function handleFetch(request, url, relatedCount) {
-  // Require API key for /fetch to prevent open proxy abuse
+  // Require valid Gemini API key for /fetch to prevent open proxy abuse
   const apiKey = request.headers.get('X-API-Key');
-  if (!apiKey) {
-    return jsonResponse(request, { error: 'Missing API key' }, 401);
+  if (!apiKey || !/^AIza[A-Za-z0-9_-]{35}$/.test(apiKey)) {
+    return jsonResponse(request, { error: 'Missing or invalid API key' }, 401);
   }
 
   let parsed;

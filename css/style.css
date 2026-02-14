@@ -697,6 +697,7 @@ a { color: #4A6FA5; }
   cursor: pointer;
   list-style: none;
 }
+.advanced-section summary::-webkit-details-marker { display: none; }
 .advanced-section summary::before {
   content: "\25B6";
   display: inline-block;
@@ -767,7 +768,9 @@ a { color: #4A6FA5; }
   font-size: 12px;
   color: #999;
   cursor: pointer;
+  list-style: none;
 }
+.changelog-section summary::-webkit-details-marker { display: none; }
 .changelog {
   text-align: left;
   margin-top: 8px;
