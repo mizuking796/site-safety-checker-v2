@@ -225,6 +225,18 @@
       </div>
     </div>
 
+    <!-- Cloaking Notice -->
+    <div class="card cloaking-card" id="cloakingNotice" hidden>
+      <div class="cloaking-header">広告クローキングの可能性</div>
+      <p>このURLには広告プラットフォーム（Facebook広告等）のトラッキングパラメータが含まれています。</p>
+      <p>広告経由の詐欺サイトでは、<strong>広告審査やセキュリティチェックをすり抜けるために「クローキング」</strong>と呼ばれる手法が使われることがあります。これはアクセス元を判別し、審査用のボットには無害なダミーページを表示し、実際のユーザーには詐欺コンテンツを表示する手口です。</p>
+      <p>そのため、<strong>以下のAI分析結果は、あなたが実際にブラウザで見ているページとは異なる内容に基づいている可能性があります。</strong></p>
+      <p>より正確な分析を行うには、ブラウザで実際に表示されているページの内容をコピーして「テキスト貼り付け」モードで再分析してください。</p>
+      <div class="cloaking-action">
+        <button class="btn btn-secondary" id="btnGoTextPaste">テキスト貼り付けで再分析</button>
+      </div>
+    </div>
+
     <!-- Detected Categories -->
     <div class="card" id="categoriesCard" hidden>
       <h3>検出された詐欺パターン</h3>
@@ -241,18 +253,6 @@
     <div class="card" id="summaryCard" hidden>
       <h3>AI総合評価</h3>
       <p id="summaryText"></p>
-    </div>
-
-    <!-- Cloaking Notice -->
-    <div class="card cloaking-card" id="cloakingNotice" hidden>
-      <div class="cloaking-header">広告クローキングの可能性</div>
-      <p>このURLには広告プラットフォーム（Facebook広告等）のトラッキングパラメータが含まれています。</p>
-      <p>広告経由の詐欺サイトでは、<strong>広告審査やセキュリティチェックをすり抜けるために「クローキング」</strong>と呼ばれる手法が使われることがあります。これはアクセス元を判別し、審査用のボットには無害なダミーページを表示し、実際のユーザーには詐欺コンテンツを表示する手口です。</p>
-      <p>そのため、<strong>上記のAI分析結果は、あなたが実際にブラウザで見ているページとは異なる内容に基づいている可能性があります。</strong></p>
-      <p>より正確な分析を行うには、ブラウザで実際に表示されているページの内容をコピーして「テキスト貼り付け」モードで再分析してください。</p>
-      <div class="cloaking-action">
-        <button class="btn btn-secondary" id="btnGoTextPaste">テキスト貼り付けで再分析</button>
-      </div>
     </div>
 
     <!-- Incomplete Notice -->
