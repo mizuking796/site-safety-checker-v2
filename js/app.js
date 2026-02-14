@@ -258,7 +258,10 @@ const HtmlExtractor = {
     try { host = new URL(baseUrl).hostname; } catch { host = ''; }
     links.forEach(a => {
       try {
-        const href = new URL(a.href, baseUrl);
+        // Use getAttribute to get raw href; a.href resolves against the checker's origin
+        const rawHref = a.getAttribute('href') || '';
+        if (!rawHref || rawHref.startsWith('#') || rawHref.startsWith('javascript:')) return;
+        const href = new URL(rawHref, baseUrl);
         if (href.hostname && href.hostname !== host) {
           externalLinks.push(href.hostname);
         }
