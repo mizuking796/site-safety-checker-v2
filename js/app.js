@@ -95,7 +95,8 @@ const UrlAnalyzer = {
 
   BRANDS: ['amazon','rakuten','yahoo','google','apple','microsoft','facebook','instagram',
     'twitter','paypal','netflix','docomo','softbank','mercari','paypay',
-    'smbc','mufg','mizuho','jpbank','aeon','familymart','lawson','uniqlo'],
+    'smbc','mufg','mizuho','jpbank','aeon','familymart','lawson','uniqlo',
+    'line','yamato','sagawa','jppost','ekinet','jcb','visa','mastercard','au'],
 
   analyze(urlStr) {
     const result = {
@@ -138,10 +139,12 @@ const UrlAnalyzer = {
     // Brand typosquatting
     const hostLower = url.hostname.toLowerCase().replace(/[^a-z0-9]/g, '');
     for (const brand of this.BRANDS) {
-      if (hostLower.includes(brand) && !url.hostname.endsWith('.' + brand + '.com') &&
-          !url.hostname.endsWith('.' + brand + '.co.jp') && !url.hostname.endsWith('.' + brand + '.jp') &&
-          url.hostname !== brand + '.com' && url.hostname !== brand + '.co.jp' && url.hostname !== brand + '.jp' &&
-          url.hostname !== 'www.' + brand + '.com' && url.hostname !== 'www.' + brand + '.co.jp') {
+      // Strip www. for simpler comparison
+      const bareHost = url.hostname.replace(/^www\./, '');
+      if (hostLower.includes(brand) &&
+          bareHost !== brand + '.com' && bareHost !== brand + '.co.jp' && bareHost !== brand + '.jp' &&
+          !bareHost.endsWith('.' + brand + '.com') &&
+          !bareHost.endsWith('.' + brand + '.co.jp') && !bareHost.endsWith('.' + brand + '.jp')) {
         result.domain_trust -= 30;
         result.issues.push({
           title: `ブランド偽装の疑い（${brand}）`,
@@ -152,20 +155,31 @@ const UrlAnalyzer = {
       }
     }
 
-    // IDN homograph — only flag if mixed scripts or resembles a known brand
+    // IDN homograph — detect via non-ASCII in hostname (browser may or may not decode punycode)
     // Pure Japanese/Chinese/Korean IDN domains are legitimate (e.g. 君塚法律事務所.com)
-    if (/xn--/.test(url.hostname)) {
-      let decoded;
-      try { decoded = new URL(urlStr).hostname; } catch { decoded = url.hostname; }
-      // Check if it contains Latin characters mixed with non-Latin (homograph risk)
-      const hasLatin = /[a-zA-Z]/.test(decoded.replace(/\.[a-z]+$/, ''));
-      const hasNonLatin = /[^\x00-\x7F]/.test(decoded);
+    const hostnameForIDN = url.hostname;
+    const isPunycode = /xn--/.test(hostnameForIDN);
+    const hasNonAscii = /[^\x00-\x7F]/.test(hostnameForIDN);
+    if (isPunycode || hasNonAscii) {
+      // Try to get display form via anchor element (browsers may decode punycode here)
+      let displayHost = hostnameForIDN;
+      if (isPunycode && typeof document !== 'undefined') {
+        try {
+          const a = document.createElement('a');
+          a.href = urlStr;
+          if (/[^\x00-\x7F]/.test(a.hostname)) displayHost = a.hostname;
+        } catch {}
+      } else if (hasNonAscii) {
+        displayHost = hostnameForIDN;
+      }
+      // Check for mixed Latin + non-Latin scripts (homograph risk)
+      const domainPart = displayHost.replace(/\.[a-z]+$/, '');
+      const hasLatin = /[a-zA-Z]/.test(domainPart);
+      const hasNonLatin = /[^\x00-\x7F]/.test(domainPart);
       if (hasLatin && hasNonLatin) {
-        // Mixed scripts: possible homograph attack (e.g. аmazon.com with Cyrillic а)
         result.domain_trust -= 25;
         result.issues.push({ title: 'IDNホモグラフの疑い', severity: 'high', desc: 'ドメイン名にラテン文字と非ラテン文字が混在しています。ブランド偽装の可能性があります。' });
       }
-      // Pure non-Latin IDN (Japanese, etc.) — no penalty, it's normal
     }
 
     // Suspicious path keywords
@@ -335,7 +349,7 @@ const HtmlExtractor = {
     let hiddenFormFields = 0;
     allEls.forEach(el => {
       const style = el.getAttribute('style') || '';
-      if (/display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0/.test(style)) {
+      if (/display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(?![.\d])/.test(style)) {
         if (el.tagName === 'INPUT' || el.tagName === 'FORM') hiddenFormFields++;
       }
     });
@@ -1305,7 +1319,6 @@ async function runTextCheck(urlStr, pastedText) {
     alert('APIキーが設定されていません。設定画面からAPIキーを入力してください。');
     return;
   }
-  checkAbortController?.abort();
   checkAbortController = new AbortController();
   const cancelSignal = checkAbortController.signal;
   const myGen = ++checkGeneration;
@@ -1325,7 +1338,9 @@ async function runTextCheck(urlStr, pastedText) {
   const htmlContent = {
     title: '',
     headings: [],
-    bodyText: pastedText.slice(0, 10000),
+    bodyText: pastedText.length > 10000
+      ? pastedText.slice(0, 8000) + '\n[...中略...]\n' + pastedText.slice(-2000)
+      : pastedText,
     externalLinkCount: 0,
     externalDomains: [],
     forms: [],
@@ -1595,7 +1610,12 @@ function init() {
       }
     }
 
-    errEl.hidden = true;
+    if (textVal.length > 10000) {
+      errEl.textContent = `テキストが長いため、先頭8,000文字+末尾2,000文字のみ分析します（入力: ${textVal.length.toLocaleString()}文字）。`;
+      errEl.hidden = false;
+    } else {
+      errEl.hidden = true;
+    }
     runTextCheck(urlVal, textVal);
   });
 

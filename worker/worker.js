@@ -37,6 +37,23 @@ const MAX_REDIRECTS = 5;
 const MAX_RELATED_PAGES = 5;
 const ALLOWED_CHARSETS = ['utf-8','shift_jis','euc-jp','iso-8859-1','windows-1252','shift-jis','windows-31j'];
 
+// Detect charset from Content-Type header and <meta> tag fallback
+function detectCharset(contentType, rawBytes) {
+  // 1. Try Content-Type header
+  const headerMatch = contentType.match(/charset=([^\s;]+)/i);
+  if (headerMatch && ALLOWED_CHARSETS.includes(headerMatch[1].toLowerCase())) {
+    return headerMatch[1];
+  }
+  // 2. Fallback: scan first 1024 bytes for <meta charset> or <meta http-equiv content-type>
+  const head = new TextDecoder('ascii', { fatal: false }).decode(rawBytes.slice(0, 1024));
+  const metaCharset = head.match(/<meta\s+charset\s*=\s*["']?\s*([^"'\s;>]+)/i)
+    || head.match(/content\s*=\s*["'][^"']*charset=([^"'\s;]+)/i);
+  if (metaCharset && ALLOWED_CHARSETS.includes(metaCharset[1].toLowerCase())) {
+    return metaCharset[1];
+  }
+  return 'utf-8';
+}
+
 // Important page patterns for related page discovery
 const PAGE_PATTERNS = [
   { type: 'commerce_law', priority: 1,
@@ -124,7 +141,11 @@ async function fetchWithRedirects(url, signal) {
     if ([301, 302, 303, 307, 308].includes(resp.status)) {
       const location = resp.headers.get('Location');
       if (!location) break;
-      const nextUrl = new URL(location, currentUrl).toString();
+      const nextParsed = new URL(location, currentUrl);
+      if (!['http:', 'https:'].includes(nextParsed.protocol)) {
+        return { error: 'Redirect to non-HTTP protocol blocked', status: 403 };
+      }
+      const nextUrl = nextParsed.toString();
       redirectChain.push(nextUrl);
       currentUrl = nextUrl;
       continue;
@@ -217,11 +238,7 @@ async function fetchRelatedPage(target, baseHost) {
       ? arrayBuf.slice(0, MAX_RELATED_HTML_SIZE)
       : arrayBuf;
 
-    let charset = 'utf-8';
-    const charsetMatch = ct.match(/charset=([^\s;]+)/i);
-    if (charsetMatch && ALLOWED_CHARSETS.includes(charsetMatch[1].toLowerCase())) {
-      charset = charsetMatch[1];
-    }
+    const charset = detectCharset(ct, new Uint8Array(bytes));
     let html;
     try {
       html = new TextDecoder(charset, { fatal: false }).decode(bytes);
@@ -289,11 +306,7 @@ async function handleFetch(request, url, relatedCount) {
         ? arrayBuf.slice(0, MAX_HTML_SIZE)
         : arrayBuf;
 
-      let charset = 'utf-8';
-      const charsetMatch = contentType.match(/charset=([^\s;]+)/i);
-      if (charsetMatch && ALLOWED_CHARSETS.includes(charsetMatch[1].toLowerCase())) {
-        charset = charsetMatch[1];
-      }
+      const charset = detectCharset(contentType, new Uint8Array(bytes));
       try {
         html = new TextDecoder(charset, { fatal: false }).decode(bytes);
       } catch {
@@ -363,11 +376,25 @@ async function handleGeminiProxy(request, path) {
 
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/${path}?key=${encodeURIComponent(apiKey)}`;
 
-  const resp = await fetch(geminiUrl, {
-    method: request.method,
-    headers: { 'Content-Type': 'application/json' },
-    body,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+  let resp;
+  try {
+    resp = await fetch(geminiUrl, {
+      method: request.method,
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      signal: controller.signal,
+    });
+  } catch (e) {
+    clearTimeout(timeout);
+    if (e.name === 'AbortError') {
+      return jsonResponse(request, { error: 'Gemini API timeout' }, 504);
+    }
+    return jsonResponse(request, { error: `Gemini API error: ${e.message || 'unknown'}` }, 502);
+  }
+  clearTimeout(timeout);
 
   const respBody = await resp.text();
   const cors = getCorsHeaders(request);
