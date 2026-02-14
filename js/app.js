@@ -4,7 +4,7 @@
 // ============================================================
 // Version
 // ============================================================
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.3.0';
 
 // ============================================================
 // Config & Storage
@@ -44,6 +44,46 @@ function showScreen(id) {
     if (el) el.hidden = (s !== id);
   });
 }
+
+// ============================================================
+// Ad Cloaking Detector
+// ============================================================
+const CloakingDetector = {
+  // Definitive ad platform click IDs
+  AD_CLICK_PARAMS: ['fbclid','gclid','wbraid','gbraid','msclkid','ttclid','li_fat_id'],
+  // Ad campaign management params (need 2+ to trigger)
+  AD_CAMPAIGN_PARAMS: ['creative_id','campaign_id','adset_id','ad_id'],
+  AD_UTM_SOURCES: ['fb','facebook','ig','instagram','tiktok','twitter','x','line','meta'],
+  AD_UTM_MEDIUMS: ['paid','cpc','cpm','display','paid_social','paidsocial'],
+
+  detect(urlStr) {
+    try {
+      const url = new URL(urlStr);
+      const params = url.searchParams;
+
+      // Single definitive click ID → ad traffic
+      for (const p of this.AD_CLICK_PARAMS) {
+        if (params.has(p)) return true;
+      }
+
+      // 2+ campaign params → ad traffic
+      let campCount = 0;
+      for (const p of this.AD_CAMPAIGN_PARAMS) {
+        if (params.has(p)) campCount++;
+      }
+      if (campCount >= 2) return true;
+
+      // utm_source=fb/facebook/... + utm_medium=paid/cpc/...
+      const src = (params.get('utm_source') || '').toLowerCase();
+      const med = (params.get('utm_medium') || '').toLowerCase();
+      if (this.AD_UTM_SOURCES.includes(src) && this.AD_UTM_MEDIUMS.some(m => med.includes(m))) return true;
+
+      return false;
+    } catch {
+      return false;
+    }
+  }
+};
 
 // ============================================================
 // URL Analyzer (client-side, no network)
@@ -918,7 +958,7 @@ const ResultsRenderer = {
     critical: { text: '複数の深刻な懸念があります', icon: '\u2718' }
   },
 
-  render(url, integrated, aiResult, clientAnalysis, incomplete) {
+  render(url, integrated, aiResult, clientAnalysis, incomplete, cloakingDetected) {
     const { scores, risk } = integrated;
 
     // Risk banner
@@ -1025,6 +1065,14 @@ const ResultsRenderer = {
       document.getElementById('summaryText').textContent = aiResult.summary;
     } else {
       sumCard.hidden = true;
+    }
+
+    // Cloaking notice
+    const cloakEl = document.getElementById('cloakingNotice');
+    if (cloakingDetected) {
+      cloakEl.hidden = false;
+    } else {
+      cloakEl.hidden = true;
     }
 
     // Incomplete notice
@@ -1190,12 +1238,15 @@ async function runCheck(urlStr) {
     ProgressMgr.update('結果を統合中...', 95);
     const integrated = ScoreIntegrator.integrate(clientAnalysis, aiResult);
 
+    // Cloaking detection
+    const cloakingDetected = CloakingDetector.detect(urlStr);
+
     ProgressMgr.update('完了', 100);
     await sleep(200);
 
     if (cancelSignal.aborted) return;
     ProgressMgr.hide();
-    ResultsRenderer.render(urlStr, integrated, aiResult, clientAnalysis, incomplete ? incomplete.trim() : null);
+    ResultsRenderer.render(urlStr, integrated, aiResult, clientAnalysis, incomplete ? incomplete.trim() : null, cloakingDetected);
 
   } catch (e) {
     if (cancelSignal.aborted) return; // Silently exit if canceled
@@ -1512,6 +1563,19 @@ function init() {
 
   // New check
   document.getElementById('btnNewCheck').addEventListener('click', resetAndGoHome);
+
+  // Cloaking: go to text paste mode with URL pre-filled
+  document.getElementById('btnGoTextPaste').addEventListener('click', () => {
+    // inputUrl still holds the URL from the last check
+    const lastUrl = document.getElementById('inputUrl').value || '';
+    document.getElementById('inputText').value = '';
+    document.getElementById('inputTextUrl').value = lastUrl;
+    document.getElementById('urlError').hidden = true;
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === 'text'));
+    document.getElementById('modeUrl').hidden = true;
+    document.getElementById('modeText').hidden = false;
+    showScreen('screenCheck');
+  });
 
   // Cancel check — abort in-flight requests
   document.getElementById('btnCancelCheck').addEventListener('click', () => {

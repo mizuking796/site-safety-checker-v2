@@ -600,6 +600,27 @@ a { color: #4A6FA5; }
   white-space: pre-wrap;
 }
 
+/* === Cloaking Notice === */
+.cloaking-card {
+  background: #FDF2F0;
+  border-left: 4px solid #E74C3C;
+}
+.cloaking-header {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #922B21;
+  margin-bottom: 8px;
+}
+.cloaking-card p {
+  font-size: 0.9rem;
+  color: #6E2C00;
+  line-height: 1.7;
+  margin: 6px 0;
+}
+.cloaking-action {
+  margin-top: 12px;
+}
+
 /* === Notice === */
 .notice-card {
   background: #FEF9E7;
