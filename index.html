@@ -319,6 +319,15 @@
         <summary>更新履歴</summary>
         <div class="changelog">
           <div class="changelog-entry">
+            <strong>v2.3.2</strong>（2026-02-14）
+            <ul>
+              <li>セキュリティ強化: IDNホモグラフ検出の書き直し、リダイレクト先プロトコル検証、CSPにbase-uri/form-action追加</li>
+              <li>信頼性向上: Gemini APIプロキシに30秒タイムアウト追加、文字コード検出をヘルパー関数に統一（meta charset fallback対応）</li>
+              <li>検出精度: ブランドリスト9件追加（LINE/au/JCB等）、www.付きドメインの除外判定修正、opacity正規表現の誤マッチ修正</li>
+              <li>UX: テキスト貼り付け時の先頭+末尾分割方式に変更、10,000文字超で警告表示</li>
+            </ul>
+          </div>
+          <div class="changelog-entry">
             <strong>v2.3.1</strong>（2026-02-14）
             <ul>
               <li>包括バグ監査による10件修正（フォームaction解決バグ、プロンプトインジェクション緩和、APIキー形式検証強化、CSP明示化、正規表現統一等）</li>
