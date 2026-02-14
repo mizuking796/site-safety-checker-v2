@@ -1220,6 +1220,34 @@ async function runCheck(urlStr) {
           clientAnalysis.tech_safety = Math.max(0, clientAnalysis.tech_safety - 15);
           clientAnalysis.issues.push({ title: '隠しフォーム要素', severity: 'medium', desc: `${htmlContent.hiddenFormFields}個の非表示フォーム要素があります。` });
         }
+        // Form submits to external domain (phishing indicator)
+        let siteHost;
+        try { siteHost = new URL(urlStr).hostname; } catch { siteHost = ''; }
+        if (siteHost && htmlContent.forms) {
+          for (const form of htmlContent.forms) {
+            if (form.action) {
+              try {
+                const actionHost = new URL(form.action).hostname;
+                if (actionHost && actionHost !== siteHost && !actionHost.endsWith('.' + siteHost)) {
+                  clientAnalysis.tech_safety = Math.max(0, clientAnalysis.tech_safety - 25);
+                  clientAnalysis.issues.push({ title: 'フォーム外部送信', severity: 'high', desc: `フォームの送信先が外部ドメイン（${actionHost}）です。` });
+                  break;
+                }
+              } catch {}
+            }
+          }
+          // Credit card field + missing operator info = suspicious
+          const hasCardForm = htmlContent.forms.some(f => f.hasCard);
+          if (hasCardForm && !htmlContent.hasCommerceLaw && !htmlContent.hasCompanyInfo) {
+            clientAnalysis.tech_safety = Math.max(0, clientAnalysis.tech_safety - 20);
+            clientAnalysis.issues.push({ title: 'クレジットカード入力欄（運営者情報なし）', severity: 'high', desc: 'カード情報の入力フォームがありますが、特商法表記や会社概要が見当たりません。' });
+          }
+        }
+        // Excessive inline script (>50KB suggests obfuscation/payload)
+        if (htmlContent.inlineScriptChars > 50000) {
+          clientAnalysis.tech_safety = Math.max(0, clientAnalysis.tech_safety - 10);
+          clientAnalysis.issues.push({ title: '大量のインラインスクリプト', severity: 'low', desc: `${Math.round(htmlContent.inlineScriptChars / 1000)}KBのインラインスクリプトが含まれています。` });
+        }
       }
     }
 
