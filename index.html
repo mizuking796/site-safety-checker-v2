@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://*.workers.dev https://generativelanguage.googleapis.com; img-src 'self'; style-src 'self'; base-uri 'self'; form-action 'self' https://*.workers.dev https://generativelanguage.googleapis.com">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://*.workers.dev https://generativelanguage.googleapis.com; img-src 'self' data:; style-src 'self'; base-uri 'self'; form-action 'self' https://*.workers.dev https://generativelanguage.googleapis.com">
 <title>Site Safety Checker</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="css/style.css">
@@ -202,6 +202,12 @@
 
   <!-- Results Screen -->
   <section id="screenResults" class="screen" hidden>
+    <!-- Print Header (visible only in print) -->
+    <div class="print-header">
+      <span class="print-header-title">Site Safety Checker</span>
+      <span id="printDate"></span>
+    </div>
+
     <!-- Risk Banner -->
     <div class="risk-banner" id="riskBanner">
       <div class="risk-icon" id="riskIcon"></div>
@@ -216,6 +222,7 @@
       <div class="card chart-card">
         <h3>信頼性レーダー</h3>
         <canvas id="radarChart" width="300" height="300"></canvas>
+        <img id="radarPrintImg" class="radar-print-img" alt="信頼性レーダー">
       </div>
 
       <!-- Score Bars -->
@@ -266,6 +273,7 @@
     </div>
 
     <div class="results-actions">
+      <button class="btn btn-primary" id="btnPrintPdf">PDF出力</button>
       <button class="btn btn-secondary" id="btnNewCheck">別のURLをチェック</button>
     </div>
   </section>

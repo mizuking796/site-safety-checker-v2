@@ -1635,6 +1635,26 @@ function init() {
     showScreen('screenCheck');
   });
 
+  // PDF export — convert canvas to image, then print
+  document.getElementById('btnPrintPdf').addEventListener('click', () => {
+    const canvas = document.getElementById('radarChart');
+    const printImg = document.getElementById('radarPrintImg');
+    if (canvas) {
+      printImg.src = canvas.toDataURL('image/png');
+    }
+    // Set print date
+    const dateEl = document.getElementById('printDate');
+    if (dateEl) {
+      const now = new Date();
+      dateEl.textContent = now.getFullYear() + '-' +
+        String(now.getMonth() + 1).padStart(2, '0') + '-' +
+        String(now.getDate()).padStart(2, '0') + ' ' +
+        String(now.getHours()).padStart(2, '0') + ':' +
+        String(now.getMinutes()).padStart(2, '0');
+    }
+    window.print();
+  });
+
   // Cancel check — abort in-flight requests
   document.getElementById('btnCancelCheck').addEventListener('click', () => {
     checkAbortController?.abort();

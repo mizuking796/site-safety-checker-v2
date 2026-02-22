@@ -751,6 +751,121 @@ a { color: #4A6FA5; }
   .consent-card { max-width: 100%; }
 }
 
+/* === Print / PDF === */
+@media print {
+  /* Hide non-results elements */
+  .header,
+  .progress-overlay,
+  .results-actions,
+  #screenConsent,
+  #screenSetup,
+  #screenCheck,
+  #screenSettings {
+    display: none !important;
+  }
+
+  /* Wide layout */
+  body {
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .screen {
+    max-width: 100% !important;
+    padding: 0 20px 20px !important;
+  }
+  #screenResults {
+    display: block !important;
+  }
+
+  /* Cards */
+  .card {
+    box-shadow: none;
+    border: 1px solid #E0E4E8;
+    break-inside: avoid;
+  }
+
+  /* Results grid: side by side with more room */
+  .results-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  /* Radar chart image for print */
+  .chart-card canvas {
+    display: none !important;
+  }
+  .chart-card .radar-print-img {
+    display: block !important;
+    width: 300px;
+    height: 300px;
+  }
+
+  /* Score bar fills: force color rendering */
+  .score-bar-fill {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .score-bar-track {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Risk banner colors */
+  .risk-banner,
+  .risk-icon,
+  .category-tag,
+  .finding-severity {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Cloaking / notice cards */
+  .cloaking-card,
+  .notice-card,
+  .disclaimer-card {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Page break handling */
+  #findingsCard {
+    break-before: auto;
+  }
+  .finding-item {
+    break-inside: avoid;
+  }
+  .category-item {
+    break-inside: avoid;
+  }
+
+  /* Print header with URL and date */
+  .print-header {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    margin-bottom: 12px;
+    border-bottom: 2px solid #4A6FA5;
+    font-size: 0.85rem;
+    color: #555;
+  }
+  .print-header-title {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #4A6FA5;
+  }
+}
+
+/* Print header: hidden on screen */
+.print-header {
+  display: none;
+}
+/* Radar print image: hidden on screen */
+.radar-print-img {
+  display: none;
+}
+
 /* Version text */
 .version-text {
   margin-top: 12px;
